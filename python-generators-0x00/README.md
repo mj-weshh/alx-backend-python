@@ -111,14 +111,6 @@ Logs are printed to the console and include timestamps and log levels. The scrip
 - Follows PEP 8 style guidelines
 - Implements batch processing for efficient data insertion
 
-## License
-
-This project is part of the ALX Backend Python curriculum.
-
-## Author
-
-[Your Name] - [Your GitHub Profile]
-
 ## Acknowledgments
 
 - ALX School for the project requirements
