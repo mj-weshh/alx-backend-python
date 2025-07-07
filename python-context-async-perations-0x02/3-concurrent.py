@@ -10,56 +10,64 @@ import asyncio
 import aiosqlite
 from typing import List, Tuple, Any
 
-async def async_fetch_users() -> None:
+async def async_fetch_users() -> List[Tuple[Any, ...]]:
     """
     Fetch all users from the database asynchronously.
     
-    Connects to the SQLite database, executes a SELECT query to fetch all users,
-    and prints the results.
+    Returns:
+        List[Tuple[Any, ...]]: A list of tuples containing user data.
     """
     try:
         async with aiosqlite.connect("users.db") as db:
             async with db.execute("SELECT * FROM users") as cursor:
-                rows = await cursor.fetchall()
-                print("\nAll Users:")
-                for row in rows:
-                    print(row)
+                return await cursor.fetchall()
     except aiosqlite.Error as e:
         print(f"Error fetching all users: {e}")
+        return []
 
-async def async_fetch_older_users() -> None:
+async def async_fetch_older_users() -> List[Tuple[Any, ...]]:
     """
     Fetch users older than 40 from the database asynchronously.
     
-    Connects to the SQLite database, executes a parameterized SELECT query
-    to fetch users older than 40, and prints the results.
+    Returns:
+        List[Tuple[Any, ...]]: A list of tuples containing user data for users older than 40.
     """
     try:
         async with aiosqlite.connect("users.db") as db:
             async with db.execute("SELECT * FROM users WHERE age > ?", (40,)) as cursor:
-                rows = await cursor.fetchall()
-                print("\nUsers Older Than 40:")
-                for row in rows:
-                    print(row)
+                return await cursor.fetchall()
     except aiosqlite.Error as e:
         print(f"Error fetching older users: {e}")
+        return []
 
-async def fetch_concurrently() -> None:
+async def fetch_concurrently() -> Tuple[List[Tuple[Any, ...]], List[Tuple[Any, ...]]]:
     """
     Execute multiple database queries concurrently using asyncio.gather.
     
-    This function demonstrates running multiple async database operations
-    in parallel, which can significantly improve performance for I/O-bound tasks.
+    Returns:
+        Tuple containing:
+        - List of all users
+        - List of users older than 40
     """
-    await asyncio.gather(
+    users, older_users = await asyncio.gather(
         async_fetch_users(),
         async_fetch_older_users()
     )
+    return users, older_users
 
 def main() -> None:
     """Entry point for the script."""
     try:
-        asyncio.run(fetch_concurrently())
+        users, older_users = asyncio.run(fetch_concurrently())
+        
+        print("\nAll Users:")
+        for user in users:
+            print(user)
+            
+        print("\nUsers Older Than 40:")
+        for user in older_users:
+            print(user)
+            
     except Exception as e:
         print(f"An error occurred: {e}")
 
