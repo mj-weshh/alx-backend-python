@@ -1,4 +1,4 @@
-from rest_framework import viewsets, status, permissions
+from rest_framework import viewsets, status, permissions, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db.models import Q, Prefetch
@@ -19,6 +19,10 @@ class ConversationViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = ConversationListSerializer
     lookup_field = 'conversation_id'
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['participants__email', 'participants__first_name', 'participants__last_name']
+    ordering_fields = ['created_at', 'updated_at']
+    ordering = ['-created_at']
     
     def get_queryset(self):
         """Return only conversations where the current user is a participant."""
@@ -91,6 +95,10 @@ class MessageViewSet(viewsets.ModelViewSet):
     serializer_class = MessageSerializer
     permission_classes = [permissions.IsAuthenticated, IsParticipant]
     lookup_field = 'message_id'
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['message_body', 'sender__email']
+    ordering_fields = ['sent_at']
+    ordering = ['-sent_at']
     
     def get_queryset(self):
         """
