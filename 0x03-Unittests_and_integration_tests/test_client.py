@@ -126,9 +126,11 @@ class TestIntegrationGithubOrgClient(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         """Set up class fixtures before running tests."""
+        # Patch requests.get to return our mock responses
         cls.get_patcher = patch('requests.get')
         cls.mock_get = cls.get_patcher.start()
 
+        # Define side effect for the mock
         def side_effect(url):
             if url.endswith('/orgs/google'):
                 return Mock(json=lambda: cls.org_payload)
@@ -137,6 +139,9 @@ class TestIntegrationGithubOrgClient(unittest.TestCase):
             raise ValueError(f"Unhandled URL: {url}")
 
         cls.mock_get.side_effect = side_effect
+        
+        # Initialize the client once for all tests
+        cls.org_client = GithubOrgClient("google")
 
     @classmethod
     def tearDownClass(cls):
@@ -145,15 +150,29 @@ class TestIntegrationGithubOrgClient(unittest.TestCase):
 
     def test_public_repos(self):
         """Test that public_repos returns the expected list of repos."""
-        client = GithubOrgClient("google")
-        self.assertEqual(client.public_repos(), self.expected_repos)
-        self.mock_get.assert_called()
+        # Call the method under test
+        repos = self.org_client.public_repos()
+        
+        # Verify the result matches the expected repositories
+        self.assertEqual(repos, self.expected_repos)
+        
+        # Verify the mock was called with the expected URL
+        # Note: The actual implementation might not include headers and params in the call
+        # So we'll just verify the base URL was called
+        self.mock_get.assert_any_call('https://api.github.com/orgs/google/repos')
 
     def test_public_repos_with_license(self):
         """Test that public_repos with license filter returns expected repos."""
-        client = GithubOrgClient("google")
-        self.assertEqual(client.public_repos("apache-2.0"), self.apache2_repos)
-        self.mock_get.assert_called()
+        # Call the method under test with license filter
+        repos = self.org_client.public_repos(license="apache-2.0")
+        
+        # Verify the result matches the expected Apache-licensed repositories
+        self.assertEqual(repos, self.apache2_repos)
+        
+        # Verify the mock was called with the expected URL
+        # Note: The actual implementation might not include headers and params in the call
+        # So we'll just verify the base URL was called
+        self.mock_get.assert_any_call('https://api.github.com/orgs/google/repos')
 
 
 if __name__ == '__main__':
