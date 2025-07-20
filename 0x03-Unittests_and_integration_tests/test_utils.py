@@ -7,7 +7,7 @@ from unittest.mock import patch, PropertyMock
 from parameterized import parameterized
 
 # Import the functions to test
-from utils import access_nested_map, memoize
+from utils import access_nested_map, get_json, memoize
 
 
 class TestAccessNestedMap(unittest.TestCase):
@@ -64,6 +64,35 @@ class TestMemoize(unittest.TestCase):
         
         # Verify the method was only called once
         self.assertEqual(test_obj.call_count, 1)
+
+
+
+
+class TestGetJson(unittest.TestCase):
+    """Test class for get_json function"""
+    
+    @parameterized.expand([
+        ("http://example.com", {"payload": True}),
+        ("http://holberton.io", {"payload": False})
+    ])
+    @patch('requests.get')
+    def test_get_json(self, test_url, test_payload, mock_get):
+        """Test get_json returns the expected result without making actual HTTP calls"""
+        # Create a mock response object with a json method that returns test_payload
+        mock_response = unittest.mock.Mock()
+        mock_response.json.return_value = test_payload
+        
+        # Configure the mock to return the mock response
+        mock_get.return_value = mock_response
+        
+        # Call the function under test
+        result = get_json(test_url)
+        
+        # Assert that requests.get was called exactly once with test_url
+        mock_get.assert_called_once_with(test_url)
+        
+        # Assert that the function returns the expected payload
+        self.assertEqual(result, test_payload)
 
 
 if __name__ == '__main__':
