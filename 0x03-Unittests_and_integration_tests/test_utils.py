@@ -35,35 +35,40 @@ class TestAccessNestedMap(unittest.TestCase):
 
 class TestMemoize(unittest.TestCase):
     """Test class for memoize decorator"""
-
+    
     def test_memoize(self):
         """Test that the memoize decorator caches the result"""
         class TestClass:
             def __init__(self):
                 self.call_count = 0
 
-            @memoize
             def a_method(self):
                 self.call_count += 1
                 return 42
+                
+            @memoize
+            def a_property(self):
+                return self.a_method()
 
-        # Create instance and test method
+        # Create instance of TestClass
         test_obj = TestClass()
         
-        # First call - should increment call_count
-        self.assertEqual(test_obj.a_method, 42)
-        self.assertEqual(test_obj.call_count, 1)
-        
-        # Second call - should return cached result
-        self.assertEqual(test_obj.a_method, 42)
-        self.assertEqual(test_obj.call_count, 1)
-        
-        # Third call - should still return cached result
-        self.assertEqual(test_obj.a_method, 42)
-        self.assertEqual(test_obj.call_count, 1)
-        
-        # Verify the method was only called once
-        self.assertEqual(test_obj.call_count, 1)
+        # Patch the a_method to track calls and return 42
+        with patch.object(TestClass, 'a_method', return_value=42) as mock_method:
+            # First call to a_property
+            self.assertEqual(test_obj.a_property, 42)
+            
+            # Second call to a_property - should use cached result
+            self.assertEqual(test_obj.a_property, 42)
+            
+            # Verify a_method was only called once due to memoization
+            mock_method.assert_called_once()
+            
+            # Verify the method was only called once
+            self.assertEqual(mock_method.call_count, 1)
+            
+            # Verify the return value is correct
+            self.assertEqual(mock_method.return_value, 42)
 
 
 
