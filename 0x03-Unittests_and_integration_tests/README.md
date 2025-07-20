@@ -19,10 +19,17 @@ This directory contains Python code and tests demonstrating unit testing and int
 ## 🧪 Test Files Overview
 
 ### `test_utils.py`
-Contains parameterized unit tests for the `access_nested_map` function in `utils.py`. The tests verify:
-- Accessing top-level keys in a nested dictionary
-- Retrieving nested dictionaries
-- Accessing deeply nested values
+Contains unit tests for the utility functions in `utils.py`:
+
+1. **TestAccessNestedMap**: Parameterized tests for the `access_nested_map` function that verify:
+   - Accessing top-level keys in a nested dictionary
+   - Retrieving nested dictionaries
+   - Accessing deeply nested values
+
+2. **TestMemoize**: Tests for the `memoize` decorator that verify:
+   - Method results are cached after first call
+   - Subsequent calls return cached result without re-execution
+   - Property behavior works as expected
 
 ### `run_tests.py`
 A standalone test runner that can be executed directly. This is particularly useful when there are import issues with the main test file.

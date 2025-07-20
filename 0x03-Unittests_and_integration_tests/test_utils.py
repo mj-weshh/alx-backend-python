@@ -3,8 +3,11 @@
 Test module for utils.py
 """
 import unittest
+from unittest.mock import patch, PropertyMock
 from parameterized import parameterized
-from .utils import access_nested_map
+
+# Import the functions to test
+from utils import access_nested_map, memoize
 
 
 class TestAccessNestedMap(unittest.TestCase):
@@ -18,6 +21,39 @@ class TestAccessNestedMap(unittest.TestCase):
     def test_access_nested_map(self, nested_map, path, expected):
         """Test access_nested_map with different inputs"""
         self.assertEqual(access_nested_map(nested_map, path), expected)
+
+
+class TestMemoize(unittest.TestCase):
+    """Test class for memoize decorator"""
+
+    def test_memoize(self):
+        """Test that the memoize decorator caches the result"""
+        class TestClass:
+            def __init__(self):
+                self.call_count = 0
+
+            @memoize
+            def a_method(self):
+                self.call_count += 1
+                return 42
+
+        # Create instance and test method
+        test_obj = TestClass()
+        
+        # First call - should increment call_count
+        self.assertEqual(test_obj.a_method, 42)
+        self.assertEqual(test_obj.call_count, 1)
+        
+        # Second call - should return cached result
+        self.assertEqual(test_obj.a_method, 42)
+        self.assertEqual(test_obj.call_count, 1)
+        
+        # Third call - should still return cached result
+        self.assertEqual(test_obj.a_method, 42)
+        self.assertEqual(test_obj.call_count, 1)
+        
+        # Verify the method was only called once
+        self.assertEqual(test_obj.call_count, 1)
 
 
 if __name__ == '__main__':
