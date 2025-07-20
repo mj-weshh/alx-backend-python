@@ -35,6 +35,34 @@ class TestGithubOrgClient(unittest.TestCase):
         expected_url = f"https://api.github.com/orgs/{org_name}"
         mock_get_json.assert_called_once_with(expected_url)
 
+    def test_public_repos_url(self):
+        """Test that _public_repos_url returns the correct value from org"""
+        # Define the test payload
+        test_payload = {
+            "repos_url": "https://api.github.com/orgs/test_org/repos"
+        }
+
+        # Mock the org property to return our test payload
+        with patch.object(
+                GithubOrgClient, 'org',
+                new_callable=PropertyMock,
+                return_value=test_payload
+        ) as mock_org:
+            # Create an instance of GithubOrgClient
+            test_client = GithubOrgClient("test_org")
+            
+            # Access the _public_repos_url property
+            result = test_client._public_repos_url
+            
+            # Verify the result is as expected
+            self.assertEqual(
+                result,
+                "https://api.github.com/orgs/test_org/repos"
+            )
+            
+            # Verify the org property was accessed
+            mock_org.assert_called_once()
+
 
 if __name__ == '__main__':
     unittest.main()
