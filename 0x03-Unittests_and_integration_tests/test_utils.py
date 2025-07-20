@@ -54,8 +54,9 @@ class TestMemoize(unittest.TestCase):
         test_obj = TestClass()
 
         # Patch the a_method to track calls and return 42
-        with patch.object(TestClass, 'a_method',
-                         return_value=42) as mock_method:
+        with patch.object(
+                TestClass, 'a_method', return_value=42
+        ) as mock_method:
             # First call to a_property
             self.assertEqual(test_obj.a_property, 42)
 
