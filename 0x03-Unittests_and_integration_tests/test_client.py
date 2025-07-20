@@ -27,10 +27,10 @@ class TestGithubOrgClient(unittest.TestCase):
         """
         # Create an instance of GithubOrgClient
         test_client = GithubOrgClient(org_name)
-        
+
         # Call the org property
         test_client.org
-        
+
         # Verify get_json was called once with the correct URL
         expected_url = f"https://api.github.com/orgs/{org_name}"
         mock_get_json.assert_called_once_with(expected_url)
@@ -50,16 +50,16 @@ class TestGithubOrgClient(unittest.TestCase):
         ) as mock_org:
             # Create an instance of GithubOrgClient
             test_client = GithubOrgClient("test_org")
-            
+
             # Access the _public_repos_url property
             result = test_client._public_repos_url
-            
+
             # Verify the result is as expected
             self.assertEqual(
                 result,
                 "https://api.github.com/orgs/test_org/repos"
             )
-            
+
             # Verify the org property was accessed
             mock_org.assert_called_once()
 
@@ -85,16 +85,16 @@ class TestGithubOrgClient(unittest.TestCase):
         ) as mock_public_repos_url:
             # Create an instance of GithubOrgClient
             test_client = GithubOrgClient("test_org")
-            
+
             # Call the public_repos method
             result = test_client.public_repos()
-            
+
             # Verify the result is as expected
             self.assertEqual(result, ["repo1", "repo2", "repo3"])
-            
+
             # Verify get_json was called once with the test URL
             mock_get_json.assert_called_once_with(test_url)
-            
+
             # Verify _public_repos_url was accessed once
             mock_public_repos_url.assert_called_once()
 
