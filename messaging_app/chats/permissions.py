@@ -1,4 +1,5 @@
 from rest_framework import permissions
+from rest_framework.permissions import SAFE_METHODS
 
 class IsParticipantOfConversation(permissions.BasePermission):
     """
@@ -8,17 +9,45 @@ class IsParticipantOfConversation(permissions.BasePermission):
     message = 'You must be a participant of this conversation.'
     
     def has_permission(self, request, view):
-        # This permission is only checked at the object level
+        # Check if user is authenticated
+        if not request.user or not request.user.is_authenticated:
+            return False
+            
+        # For create/list actions, check if user is authenticated
+        if view.action in ['list', 'create']:
+            return True
+            
+        # For other actions, check at object level
         return True
     
     def has_object_permission(self, request, view, obj):
-        # For Conversation objects
-        if hasattr(obj, 'participants'):
-            return request.user in obj.participants.all()
+        # Check if user is authenticated
+        if not request.user or not request.user.is_authenticated:
+            return False
+            
+        # For safe methods (GET, HEAD, OPTIONS)
+        if request.method in SAFE_METHODS:
+            # For Conversation objects
+            if hasattr(obj, 'participants'):
+                return request.user in obj.participants.all()
+            
+            # For Message objects
+            if hasattr(obj, 'conversation') and hasattr(obj.conversation, 'participants'):
+                return request.user in obj.conversation.participants.all()
         
-        # For Message objects
-        if hasattr(obj, 'conversation') and hasattr(obj.conversation, 'participants'):
-            return request.user in obj.conversation.participants.all()
+        # For write methods (PUT, PATCH, DELETE)
+        elif request.method in ['PUT', 'PATCH', 'DELETE']:
+            # For Message objects, check if user is the sender
+            if hasattr(obj, 'sender') and obj.sender == request.user:
+                return True
+                
+            # For Conversation objects, check if user is a participant
+            if hasattr(obj, 'participants'):
+                return request.user in obj.participants.all()
+                
+            # For Message objects, check if user is a participant of the conversation
+            if hasattr(obj, 'conversation') and hasattr(obj.conversation, 'participants'):
+                return request.user in obj.conversation.participants.all()
         
         return False
 

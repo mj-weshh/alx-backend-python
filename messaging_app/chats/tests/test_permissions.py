@@ -55,7 +55,7 @@ class ConversationPermissionsTest(APITestCase):
         self.client = APIClient()
     
     def test_simple_permission_check(self):
-        ""Test basic permission check."""
+        """Test basic permission check."""
         self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {self.user1_token}')
         response = self.client.get('/api/conversations/')
         self.assertIn(response.status_code, [status.HTTP_200_OK, status.HTTP_403_FORBIDDEN])

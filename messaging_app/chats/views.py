@@ -116,22 +116,24 @@ class MessageViewSet(viewsets.ModelViewSet):
         Return messages from conversations where the current user is a participant.
         Can be filtered by conversation_id.
         """
+        # Start with all messages
         queryset = Message.objects.select_related('sender', 'conversation')
-        conversation_id = self.request.query_params.get('conversation_id')
         
+        # Filter by conversation_id if provided
+        conversation_id = self.request.query_params.get('conversation_id')
         if conversation_id:
-            # Check if the user is a participant of the conversation
-            try:
-                conversation = Conversation.objects.get(conversation_id=conversation_id)
-                if not conversation.participants.filter(user_id=self.request.user.user_id).exists():
-                    raise PermissionDenied("You are not a participant of this conversation")
-                return queryset.filter(conversation_id=conversation_id)
-            except Conversation.DoesNotExist:
-                raise NotFound("Conversation not found")
+            # Use filter() instead of get() for better error handling
+            conversations = Conversation.objects.filter(
+                conversation_id=conversation_id,
+                participants=self.request.user
+            )
+            if not conversations.exists():
+                raise PermissionDenied("You are not a participant of this conversation.")
+            return queryset.filter(conversation_id=conversation_id)
             
         # If no conversation_id is provided, return all messages from user's conversations
         return queryset.filter(
-            Q(conversation__participants=self.request.user) | 
+            Q(conversation__participants=self.request.user) |
             Q(sender=self.request.user)
         ).distinct()
         
