@@ -9,16 +9,10 @@ from rest_framework.response import Response
 from rest_framework.exceptions import PermissionDenied, NotFound, ValidationError
 from .models import Conversation, Message, User
 from .serializers import ConversationListSerializer, ConversationDetailSerializer, MessageSerializer
-from .permissions import IsOwnerOrParticipant, IsMessageParticipant
+from .permissions import IsParticipantOfConversation, IsMessageSenderOrReadOnly, IsAdminOrReadOnly
 
 # Set up logging
 logger = logging.getLogger(__name__)
-
-
-class IsParticipant(permissions.BasePermission):
-    """Custom permission to only allow participants of a conversation to view it."""
-    def has_object_permission(self, request, view, obj):
-        return request.user in obj.participants.all()
 
 
 class ConversationViewSet(viewsets.ModelViewSet):
@@ -27,7 +21,7 @@ class ConversationViewSet(viewsets.ModelViewSet):
     - List/Create: Available to authenticated users
     - Retrieve/Update/Delete: Only for conversation participants
     """
-    permission_classes = [permissions.IsAuthenticated, IsParticipant]
+    permission_classes = [permissions.IsAuthenticated, IsParticipantOfConversation]
     serializer_class = ConversationListSerializer
     lookup_field = 'conversation_id'
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
@@ -110,7 +104,7 @@ class MessageViewSet(viewsets.ModelViewSet):
     - Retrieve/Update/Delete: Only for message sender or conversation participants
     """
     serializer_class = MessageSerializer
-    permission_classes = [permissions.IsAuthenticated, IsParticipant]
+    permission_classes = [permissions.IsAuthenticated, IsMessageSenderOrReadOnly]
     lookup_field = 'message_id'
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['message_body', 'sender__email']
