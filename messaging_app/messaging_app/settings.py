@@ -129,9 +129,12 @@ STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Django REST Framework settings
+# Note: We're using a custom MessagePagination class that extends PageNumberPagination
+# to provide consistent pagination across the API with a default page size of 20.
+# The PageNumberPagination class is the base class that provides the core pagination functionality.
 REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'chats.pagination.MessagePagination',
-    'PAGE_SIZE': 20,
+    'PAGE_SIZE': 20,  # This uses PageNumberPagination under the hood
     'DEFAULT_FILTER_BACKENDS': [
         'django_filters.rest_framework.DjangoFilterBackend',
         'rest_framework.filters.OrderingFilter',
