@@ -7,9 +7,13 @@ from rest_framework import viewsets, status, permissions, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.exceptions import PermissionDenied, NotFound, ValidationError
+from django_filters.rest_framework import DjangoFilterBackend
+
 from .models import Conversation, Message, User
 from .serializers import ConversationListSerializer, ConversationDetailSerializer, MessageSerializer
 from .permissions import IsParticipantOfConversation, IsMessageSenderOrReadOnly, IsAdminOrReadOnly
+from .pagination import MessagePagination
+from .filters import MessageFilter
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -105,24 +109,26 @@ class MessageViewSet(viewsets.ModelViewSet):
     """
     serializer_class = MessageSerializer
     permission_classes = [permissions.IsAuthenticated, IsMessageSenderOrReadOnly]
-    lookup_field = 'message_id'
-    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    pagination_class = MessagePagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_class = MessageFilter
     search_fields = ['message_body', 'sender__email']
-    ordering_fields = ['sent_at']
+    ordering_fields = ['sent_at', 'sender__email']
     ordering = ['-sent_at']
+    lookup_field = 'message_id'
     
     def get_queryset(self):
         """
         Return messages from conversations where the current user is a participant.
-        Can be filtered by conversation_id.
+        Can be filtered by conversation_id and other query parameters.
         """
-        # Filter messages where the user is either a participant or the sender
+        # Base queryset with security check - only messages from user's conversations
         queryset = Message.objects.filter(
             Q(conversation__participants=self.request.user) |
             Q(sender=self.request.user)
         ).select_related('sender', 'conversation')
         
-        # Filter by conversation_id if provided
+        # Apply conversation filter if provided
         conversation_id = self.request.query_params.get('conversation_id')
         if conversation_id:
             # Verify the user is a participant of the conversation
@@ -134,8 +140,9 @@ class MessageViewSet(viewsets.ModelViewSet):
             if not is_participant:
                 raise PermissionDenied("You are not a participant of this conversation.")
                 
-            queryset = Message.objects.filter(conversation_id=conversation_id)
-            
+            queryset = queryset.filter(conversation_id=conversation_id)
+        
+        # Apply additional filtering from query parameters
         return queryset.distinct()
         
     def get_permissions(self):
