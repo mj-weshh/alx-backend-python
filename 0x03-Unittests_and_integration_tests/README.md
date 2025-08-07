@@ -1,93 +1,71 @@
-# Unit Tests and Integration Tests in Python
+### Unittests and Intergration Tests.
 
-This directory contains Python code and tests demonstrating unit testing and integration testing practices using Python's built-in `unittest` framework and the `parameterized` package.
+__Unit testing__ is the process of testing a particular function returns expected results for different set of inputs. A unit test should on test the logic defined inside the tested function. __Intergration Tests__ aims to test the code path end-to-end.
 
-## 📁 Directory Structure
-
-```
-0x03-Unittests_and_integration_tests/
-├── __init__.py         # Makes the directory a Python package
-├── client.py           # GitHub API client implementation
-├── fixtures.py         # Test fixtures and mock data
-├── requirements.txt    # Project dependencies
-├── run_tests.py        # Standalone test runner
-├── test_import.py      # Test script for dependency verification
-├── test_utils.py       # Unit tests for utility functions
-└── utils.py            # Utility functions being tested
-```
-
-## 🧪 Test Files Overview
-
-### `test_utils.py`
-Contains unit tests for the utility functions in `utils.py`:
-
-1. **TestAccessNestedMap**: Parameterized tests for the `access_nested_map` function that verify:
-   - Accessing top-level keys in a nested dictionary
-   - Retrieving nested dictionaries
-   - Accessing deeply nested values
-
-2. **TestMemoize**: Tests for the `memoize` decorator that verify:
-   - Method results are cached after first call
-   - Subsequent calls return cached result without re-execution
-   - Property behavior works as expected
-
-### `run_tests.py`
-A standalone test runner that can be executed directly. This is particularly useful when there are import issues with the main test file.
-
-### `fixtures.py`
-Contains test data and fixtures used across multiple test files, including sample GitHub API responses.
-
-## 🛠️ Dependencies
-
-The project requires the following Python packages:
-- `parameterized` (>=0.9.0) - For parameterized testing
-- `requests` (>=2.31.0) - For making HTTP requests
-
-Install dependencies using:
+Execute tests using:
 ```bash
-pip install -r requirements.txt
+python -m unittest path/to/test_file.py
 ```
-
-## 🚀 Running Tests
-
-### Running All Tests
+You can run tests with more detail(higher verbosity) by passing in the -v flag:
 ```bash
-python -m unittest discover -s 0x03-Unittests_and_integration_tests -p "test_*.py" -v
+python -m unittest -v test_module
 ```
-
-### Running Specific Test File
+For a list of all the command-line options:
 ```bash
-python -m 0x03-Unittests_and_integration_tests.test_utils -v
+python -m unittest -h
 ```
 
-### Using the Standalone Test Runner
+#### Resources
+
+* [unitttest - Unit Testing Framework](https://docs.python.org/3/library/unittest.html)
+* [unittest.mock - mock object library](https://docs.python.org/3/library/unittest.mock.html)
+* [How to mock a readonly property with mock?](https://stackoverflow.com/questions/11836436/how-to-mock-a-readonly-property-with-mock)
+* [parameterized](https://pypi.org/project/parameterized/)
+* [memoization](https://en.wikipedia.org/wiki/Memoization)
+
+##### unittest - Unit testing framework
+
+Unit testing supports some important concepts in an object-oriented way:
+
+* __test fixture__:  Represents the preparation needed to perform one or more tests, and any associated cleanup actions.
+* __test case__: This is the individual unit of testing. It checks for a specific response to a particular set of inputs.
+* __test suite__: A collection of test cases, test suites or both. Used to aggregate tests that should be executed together.
+* __test runner__: This is a component which orchestrates the execution of tests and provides the outcome to the user.
+
+##### Test Discovery
+
+In order to be compatible with test discovery, all test files must be modules or packages importable from the top level directory of the project. Test discovery is implemenetd in in TestLoader.discover(), but can also be used from the command line. The basic command line usage is:
 ```bash
-python 0x03-Unittests_and_integration_tests/run_tests.py -v
+python -m unittest discover
 ```
 
-## 🧠 Key Concepts
+##### Organizing Test Code
 
-### Parameterized Testing
-Tests are written using the `@parameterized.expand` decorator to run the same test logic with different inputs.
+In unittest, test cases are represented by __unittest.TestCase__ instances. To make your own test cases, you must write subclasses of __TestCase__ or use __FunctionTestCase__.
 
-### Test Organization
-- Tests are organized in classes that inherit from `unittest.TestCase`
-- Each test method starts with `test_`
-- Test methods are documented with docstrings explaining their purpose
+The simplest TestCase subclass will simply implement a test method. That is a method whose name starts with `test` in order to perform specific testing code.
 
-### Fixtures
-Test data is centralized in `fixtures.py` to avoid duplication and make tests more maintainable.
+```bash
+import unittest
 
-## 📝 Notes
+class DefaultWidgetSizeTestCase(unittest.TestCase):
+    def test_default_widget_size(self):
+        widget = Widget('The Widget')
+        self.assertEqual(widget.size(), (50, 50))
+```
 
-- The `access_nested_map` function safely accesses nested dictionary values using a sequence of keys.
-- The test suite includes edge cases and error handling scenarios.
-- The project follows Python best practices for testing and code organization.
+Note that in order to test something, we use the __assert* methods__ provided by the TestCase.
 
-## 🧪 Testing Best Practices
+#### unittesting.mock - mock object library
 
-1. **Isolation**: Each test should be independent
-2. **Readability**: Clear test names and docstrings
-3. **Coverage**: Test both happy paths and edge cases
-4. **Performance**: Tests should be fast and efficient
-5. **Maintainability**: Keep test code clean and well-documented
+__unittesting.mock__ is a library for testing Python. It allows you to replace parts of your system under test with mock objects and make assertions about how the have been used.
+
+#### parameterized
+
+```bash
+pip install parameterized
+```
+
+#### memoization
+
+This is an optimisation technique used primarily to speed up computer programs by storing the results of expensive function calls to pure functions and retruning the cached result when the same inouts occur again.

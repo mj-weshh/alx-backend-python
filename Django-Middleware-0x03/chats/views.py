@@ -1,202 +1,104 @@
-import logging
-from datetime import datetime
-from django.utils import timezone
-from django.db.models import Q, Prefetch
-from django.shortcuts import get_object_or_404
-from rest_framework import viewsets, status, permissions, filters
-from rest_framework.decorators import action
+from rest_framework import viewsets, permissions, status, filters
 from rest_framework.response import Response
-from rest_framework.exceptions import PermissionDenied, NotFound, ValidationError
+from rest_framework.exceptions import PermissionDenied
 from django_filters.rest_framework import DjangoFilterBackend
-
-from .models import Conversation, Message, User
-from .serializers import ConversationListSerializer, ConversationDetailSerializer, MessageSerializer
-from .permissions import IsParticipantOfConversation, IsMessageSenderOrReadOnly, IsAdminOrReadOnly
-from .pagination import MessagePagination
-from .filters import MessageFilter
-
-# Set up logging
-logger = logging.getLogger(__name__)
+from .models import Conversation, Message
+from .serializers import ConversationSerializer, MessageSerializer
+from .permissions import IsParticipantOfConversation, IsMessageOwner
+from .pagination import MessagePagination, ConversationPagination
+from .filters import MessageFilter, ConversationFilter
 
 
 class ConversationViewSet(viewsets.ModelViewSet):
-    """
-    ViewSet for viewing and managing conversations.
-    - List/Create: Available to authenticated users
-    - Retrieve/Update/Delete: Only for conversation participants
-    """
+    queryset = Conversation.objects.all()
+    serializer_class = ConversationSerializer
     permission_classes = [permissions.IsAuthenticated, IsParticipantOfConversation]
-    serializer_class = ConversationListSerializer
-    lookup_field = 'conversation_id'
-    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
-    search_fields = ['participants__email', 'participants__first_name', 'participants__last_name']
+    pagination_class = ConversationPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_class = ConversationFilter
+    search_fields = ['participants__username']
     ordering_fields = ['created_at', 'updated_at']
-    ordering = ['-created_at']
-    
+    ordering = ['updated_at']
+
     def get_queryset(self):
-        """
-        Return conversations where the current user is a participant.
-        Optimized with select_related and prefetch_related for performance.
-        """
-        return Conversation.objects.filter(
-            participants=self.request.user
-        ).prefetch_related(
-            Prefetch('participants', queryset=User.objects.only('user_id', 'email', 'first_name', 'last_name')),
-            Prefetch('messages', queryset=Message.objects.select_related('sender').order_by('-sent_at')),
-        ).order_by('-created_at').distinct()
+        # Only return conversations where the user is a participant.
+        return Conversation.objects.filter(participants=self.request.user)
     
-    def get_serializer_class(self):
-        """Use different serializers for list and retrieve actions."""
-        if self.action == 'retrieve':
-            return ConversationDetailSerializer
-        return self.serializer_class
-    
-    def create(self, request, *args, **kwargs):
-        """
-        Create a new conversation with the specified participants.
-        
-        The current user is automatically added as a participant.
-        """
-        participants = request.data.get('participants', [])
-        
-        # Ensure participants is a list of user IDs
-        if not isinstance(participants, list):
-            return Response(
-                {"participants": ["Expected a list of user IDs."]},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        # Add current user to participants if not already included
-        current_user_id = str(request.user.user_id)
-        if current_user_id not in participants:
-            participants.append(current_user_id)
-        
-        # Get user objects for all participants
-        try:
-            participant_objs = User.objects.filter(user_id__in=participants)
-            if len(participant_objs) != len(set(participants)):  # Check for invalid user IDs
-                return Response(
-                    {"participants": ["One or more user IDs are invalid."]},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-            
-            # Create conversation
-            conversation = Conversation.objects.create()
-            conversation.participants.set(participant_objs)
-            
-            # Return the created conversation
-            serializer = self.get_serializer(conversation)
-            headers = self.get_success_headers(serializer.data)
-            return Response(
-                serializer.data,
-                status=status.HTTP_201_CREATED,
-                headers=headers
-            )
-            
-        except Exception as e:
-            return Response(
-                {"detail": str(e)},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+    def perform_create(self, serializer):
+        # When creating a conversarion, add the creater as a participant.
+        conversation = serializer.save()
+        conversation.participants.add(self.request.user)
 
 
 class MessageViewSet(viewsets.ModelViewSet):
-    """
-    ViewSet for viewing and creating messages within conversations.
-    - List: Messages from conversations where user is a participant
-    - Create: Only allowed for conversation participants
-    - Retrieve/Update/Delete: Only for message sender or conversation participants
-    """
+    queryset = Message.objects.all()
     serializer_class = MessageSerializer
-    permission_classes = [permissions.IsAuthenticated, IsMessageSenderOrReadOnly]
+    permission_classes = [permissions.IsAuthenticated, IsParticipantOfConversation, IsMessageOwner]
     pagination_class = MessagePagination
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filter_backends = [DjangoFilterBackend, filters.OrderingFilter, filters.SearchFilter]
     filterset_class = MessageFilter
-    search_fields = ['message_body', 'sender__email']
-    ordering_fields = ['sent_at', 'sender__email']
+    search_fields = ['message_body', 'sender__username']
+    ordering_fields = ['sent_at']
     ordering = ['-sent_at']
-    lookup_field = 'message_id'
-    
+
     def get_queryset(self):
-        """
-        Return messages from conversations where the current user is a participant.
-        Can be filtered by conversation_id and other query parameters.
-        """
-        # Base queryset with security check - only messages from user's conversations
-        queryset = Message.objects.filter(
-            Q(conversation__participants=self.request.user) |
-            Q(sender=self.request.user)
-        ).select_related('sender', 'conversation')
-        
-        # Apply conversation filter if provided
-        conversation_id = self.request.query_params.get('conversation_id')
-        if conversation_id:
-            # Verify the user is a participant of the conversation
-            is_participant = Conversation.objects.filter(
-                conversation_id=conversation_id,
-                participants=self.request.user
-            ).exists()
-            
-            if not is_participant:
-                raise PermissionDenied("You are not a participant of this conversation.")
-                
-            queryset = queryset.filter(conversation_id=conversation_id)
-        
-        # Apply additional filtering from query parameters
-        return queryset.distinct()
-        
-    def get_permissions(self):
-        """
-        Instantiates and returns the list of permissions that this view requires.
-        """
-        if self.action in ['update', 'partial_update', 'destroy']:
-            return [permissions.IsAuthenticated(), IsOwnerOrParticipant()]
-        return super().get_permissions()
-        
+        user_conversations = Conversation.objects.filter(participants=self.request.user)
+
+        if 'conversation_pk' in self.kwargs:
+            return Message.objects.filter(conversation_id=self.kwargs['conversation_pk'],
+                                          conversation__in=user_conversations)
+
+        elif 'conversation_id' in self.kwargs:
+            return Message.objects.filter(conversation_id=self.kwargs['conversation_id'],
+                                          conversation__in=user_conversations)
+        return Message.objects.filter(conversation__in=user_conversations)
+
     def perform_create(self, serializer):
-        """Set the sender to the current user and validate conversation participation."""
-        conversation = serializer.validated_data['conversation']
-        if not conversation.participants.filter(user_id=self.request.user.user_id).exists():
-            raise PermissionDenied("You are not a participant of this conversation")
-        serializer.save(sender=self.request.user)
-        
-    def create(self, request, *args, **kwargs):
-        """Handle message creation with proper error handling."""
-        try:
-            response = super().create(request, *args, **kwargs)
-            # Optionally update conversation's last_updated timestamp
-            conversation_id = request.data.get('conversation')
-            if conversation_id:
-                Conversation.objects.filter(conversation_id=conversation_id).update(updated_at=timezone.now())
-            return response
-        except PermissionDenied as e:
+        conversation_id = self.kwargs.get('conversation_id') or self.kwargs.get('conversation_pk')
+
+        if conversation_id:
+            try:
+                conversation = Conversation.objects.get(id=conversation_id)
+                if self.request.user not in conversation.participants.all():
+                    return Response(
+                        {"detail": "You are not a participant in this conversation."},
+                        status=status.HTTP_403_FORBIDDEN
+                    )
+                serializer.save(conversation=conversation, sender=self.request.user)
+            except Conversation.DoesNotExist:
+                return Response(
+                    {"detail": "Conversation does not exist."},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+        else:
+            serializer.save(sender=self.request.user)
+    
+    def update(self, request, *args, **kwargs):
+        """Override update to add explicit permission check"""
+        instance = self.get_object()
+        if instance.sender != request.user:
             return Response(
-                {'detail': str(e)},
+                {"error": "You do not have permission to update this message."},
                 status=status.HTTP_403_FORBIDDEN
             )
-        except Exception as e:
-            logger.error(f"Error creating message: {str(e)}")
+        return super().update(request, *args, **kwargs) 
+    
+    def delete(self, request, *args, **kwargs):
+        """Override delete to add explicit permission check"""
+        instance = self.get_object()
+        if instance.sender != request.user:
             return Response(
-                {'detail': 'An error occurred while processing your request.'},
-                status=status.HTTP_400_BAD_REQUEST
+                {"error": "You do not have permission to delete this message."},
+                status=status.HTTP_403_FORBIDDEN
             )
-            
-    def destroy(self, request, *args, **kwargs):
-        """
-        Allow message deletion by sender or conversation participants.
-        Implements soft delete if the model supports it.
-        """
-        try:
-            message = self.get_object()
-            if hasattr(message, 'is_deleted'):
-                # Soft delete if supported
-                message.is_deleted = True
-                message.save()
-                return Response(status=status.HTTP_204_NO_CONTENT)
-            return super().destroy(request, *args, **kwargs)
-        except Exception as e:
-            logger.error(f"Error deleting message: {str(e)}")
+        return super().delete(request, *args, **kwargs)
+    
+    def partial_update(self, request, *args, **kwargs):
+        """Override partial_update to add explicit permission check"""
+        instance = self.get_object()
+        if instance.sender != request.user:
             return Response(
-                {'detail': 'An error occurred while deleting the message.'},
-                status=status.HTTP_400_BAD_REQUEST
+                {"error": "You do not have permission to partially update this message."},
+                status=status.HTTP_403_FORBIDDEN
             )
+        return super().partial_update(request, *args, **kwargs)
